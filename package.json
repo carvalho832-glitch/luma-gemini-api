@@ -1,0 +1,18 @@
+{
+  "name": "luma-gemini-api",
+  "version": "1.0.0",
+  "description": "API segura para conectar o app PWA ao Gemini",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@google/genai": "latest",
+    "cors": "latest",
+    "express": "latest"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
