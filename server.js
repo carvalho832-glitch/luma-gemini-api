@@ -20,7 +20,6 @@ app.get("/", (req, res) => {
 
 app.post("/analisar-dia", async (req, res) => {
   try {
-
     const dados = req.body;
 
     const prompt = `
@@ -66,12 +65,71 @@ texto motivador curto
     });
 
   } catch (erro) {
-
     console.error("ERRO GEMINI:", erro);
 
     res.status(500).json({
       sucesso: false,
       erro: "Erro ao gerar resposta da IA"
+    });
+  }
+});
+
+app.post("/calcular-calorias", async (req, res) => {
+  try {
+    const dados = req.body;
+
+    const prompt = `
+Você é uma assistente nutricional.
+
+Analise os alimentos informados pelo usuário e estime as calorias consumidas em cada refeição.
+
+IMPORTANTE:
+- Responda somente em JSON válido.
+- Não use markdown.
+- Não use explicações fora do JSON.
+- Os valores são estimativas aproximadas.
+- Se não houver alimentos em uma refeição, use 0.
+- Use números inteiros.
+
+Dados recebidos:
+${JSON.stringify(dados, null, 2)}
+
+Responda exatamente neste formato:
+
+{
+  "cafe": 0,
+  "almoco": 0,
+  "jantar": 0,
+  "total": 0,
+  "observacao": "estimativa aproximada"
+}
+`;
+
+    const resposta = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt
+    });
+
+    let texto = resposta.text || "";
+
+    texto = texto
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+
+    const calorias = JSON.parse(texto);
+
+    res.json({
+      sucesso: true,
+      calorias
+    });
+
+  } catch (erro) {
+    console.error("ERRO CALORIAS:", erro);
+
+    res.status(500).json({
+      sucesso: false,
+      erro: "Erro ao calcular calorias"
     });
   }
 });
