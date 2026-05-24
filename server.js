@@ -18,6 +18,10 @@ app.get("/", (req, res) => {
   res.send("API Luma Gemini funcionando 🚀");
 });
 
+// ==========================================
+// ANALISAR DIA
+// ==========================================
+
 app.post("/analisar-dia", async (req, res) => {
   try {
     const dados = req.body;
@@ -73,6 +77,10 @@ texto motivador curto
     });
   }
 });
+
+// ==========================================
+// CALCULAR CALORIAS
+// ==========================================
 
 app.post("/calcular-calorias", async (req, res) => {
   try {
@@ -130,6 +138,90 @@ Responda exatamente neste formato:
     res.status(500).json({
       sucesso: false,
       erro: "Erro ao calcular calorias"
+    });
+  }
+});
+
+// ==========================================
+// GERAR TREINO COM IA
+// ==========================================
+
+app.post("/gerar-treino", async (req, res) => {
+  try {
+    const dados = req.body;
+
+    const prompt = `
+Você é uma treinadora virtual especialista em emagrecimento, caminhada, corrida leve e exercícios para iniciantes.
+
+Sua missão é criar um treino REALISTA, SEGURO, MOTIVADOR e adequado ao contexto do usuário.
+
+Considere cuidadosamente:
+- peso atual
+- altura
+- IMC
+- meta de peso
+- histórico de peso
+- consumo de água
+- calorias do diário alimentar
+- últimos treinos registrados
+- nível provável do usuário
+- foco em perda de gordura
+- segurança articular
+
+IMPORTANTE:
+- Não faça diagnóstico médico.
+- Não prescreva treino extremo.
+- Não use linguagem técnica demais.
+- Não recomende carga pesada.
+- Priorize caminhada, corrida leve e exercícios com peso corporal.
+- Caso os dados indiquem pouco histórico, monte um treino iniciante.
+- Caso haja muitos treinos recentes, sugira recuperação ativa.
+- Se houver sinais de excesso, reduza intensidade.
+- Seja direto, humano e motivador.
+
+Dados do usuário:
+${JSON.stringify(dados, null, 2)}
+
+Responda EXATAMENTE neste formato:
+
+TREINO:
+🏃 Aquecimento:
+texto curto
+
+💪 Exercícios:
+• exercício 1
+• exercício 2
+• exercício 3
+• exercício 4
+
+🔥 Cardio:
+texto curto
+
+🧘 Alongamento:
+texto curto
+
+MOTIVAÇÃO:
+frase motivadora curta
+`;
+
+    const resposta = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt
+    });
+
+    const texto = resposta.text;
+
+    res.json({
+      sucesso: true,
+      resposta: texto
+    });
+
+  } catch (erro) {
+    console.error("ERRO TREINO:", erro);
+
+    res.status(500).json({
+      sucesso: false,
+      erro: "Erro ao gerar treino"
     });
   }
 });
