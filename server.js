@@ -86,7 +86,7 @@ frase motivadora curta
 });
 
 // ==========================================
-// CALCULAR CALORIAS
+// CALCULAR CALORIAS DAS REFEIÇÕES
 // ==========================================
 
 app.post("/calcular-calorias", async (req, res) => {
@@ -145,6 +145,87 @@ Responda exatamente neste formato:
     res.status(500).json({
       sucesso: false,
       erro: "Erro ao calcular calorias"
+    });
+  }
+});
+
+// ==========================================
+// CALCULAR META DIÁRIA DE KCAL
+// ==========================================
+
+app.post("/calcular-meta-kcal", async (req, res) => {
+  try {
+    const dados = req.body;
+
+    const prompt = `
+Você é a Luma, uma assistente nutricional brasileira focada em emagrecimento saudável e orientação prática.
+
+Sua missão é estimar uma meta diária de calorias para o usuário com base nos dados recebidos.
+
+Considere:
+- nome, se houver
+- idade
+- sexo
+- peso atual
+- altura
+- IMC
+- meta de peso
+- objetivo principal
+- nível de treino
+- histórico de peso
+- observações ou restrições
+
+IMPORTANTE:
+- Não faça diagnóstico médico.
+- Não prometa resultado.
+- Não seja agressiva na redução calórica.
+- Não recomende dieta extrema.
+- Use uma meta segura e realista.
+- Se faltarem dados, use uma estimativa conservadora.
+- Responda somente em JSON válido.
+- Não use markdown.
+- Não use explicações fora do JSON.
+- Use números inteiros.
+
+Dados recebidos:
+${JSON.stringify(dados, null, 2)}
+
+Responda exatamente neste formato:
+
+{
+  "metaKcal": 1800,
+  "faixaMin": 1700,
+  "faixaMax": 2000,
+  "status": "Meta estimada pela Luma",
+  "observacao": "Meta aproximada para apoiar sua rotina. Ajuste com profissional de saúde se necessário."
+}
+`;
+
+    const resposta = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt
+    });
+
+    let texto = resposta.text || "";
+
+    texto = texto
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+
+    const meta = JSON.parse(texto);
+
+    res.json({
+      sucesso: true,
+      meta
+    });
+
+  } catch (erro) {
+    console.error("ERRO META KCAL:", erro);
+
+    res.status(500).json({
+      sucesso: false,
+      erro: "Erro ao calcular meta de calorias"
     });
   }
 });
