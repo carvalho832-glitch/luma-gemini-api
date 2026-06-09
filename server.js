@@ -7,7 +7,7 @@ const app = express();
 app.use(cors());
 
 app.use(express.json({
-  limit: "2mb"
+  limit: "12mb"
 }));
 
 const ai = new GoogleGenAI({
@@ -220,6 +220,105 @@ Responda exatamente neste formato:
     res.status(500).json({
       sucesso: false,
       erro: "Erro ao calcular calorias"
+    });
+  }
+});
+
+// ==========================================
+// ANALISAR FOTO DE REFEIÇÃO
+// ==========================================
+
+app.post("/analisar-foto-refeicao", async (req, res) => {
+  try {
+    const {
+      imagemBase64,
+      mimeType = "image/jpeg",
+      refeicao = "cafe",
+      contexto = {}
+    } = req.body || {};
+
+    if (!imagemBase64) {
+      return res.status(400).json({
+        sucesso: false,
+        erro: "Envie a imagemBase64 da refeição."
+      });
+    }
+
+    const imagemLimpa = String(imagemBase64).replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
+
+    const prompt = `
+Você é a Luma, uma assistente nutricional brasileira.
+
+Analise a foto da refeição e identifique os alimentos visíveis.
+
+A refeição selecionada no app é: ${refeicao}.
+
+REGRAS IMPORTANTES:
+- Responda somente em JSON válido.
+- Não use markdown.
+- Não use texto fora do JSON.
+- Use português do Brasil.
+- Estime as calorias com prudência.
+- Considere que porções vistas em foto são aproximadas.
+- Se não tiver certeza de um item, use um nome provável e marque confiança média ou baixa.
+- Não invente alimentos que não aparecem.
+- Não faça diagnóstico médico.
+- Não recomende remédios.
+- Não altere medicação.
+- Use números inteiros para kcal.
+- A observação deve ser curta e clara.
+
+Contexto do usuário, se houver:
+${JSON.stringify(contexto, null, 2)}
+
+Responda exatamente neste formato:
+
+{
+  "refeicao": "${refeicao}",
+  "itens": [
+    {
+      "nome": "alimento identificado",
+      "quantidade": "porção estimada",
+      "kcal": 0,
+      "confianca": "alta"
+    }
+  ],
+  "totalKcal": 0,
+  "observacao": "Calorias estimadas pela foto. Ajuste as porções se necessário."
+}
+`;
+
+    const resposta = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType,
+                data: imagemLimpa
+              }
+            }
+          ]
+        }
+      ]
+    });
+
+    const analise = extrairJsonDaResposta(resposta.text || "");
+
+    res.json({
+      sucesso: true,
+      analise
+    });
+
+  } catch (erro) {
+    console.error("ERRO FOTO REFEICAO:", erro);
+
+    res.status(500).json({
+      sucesso: false,
+      erro: "Erro ao analisar foto da refeição"
     });
   }
 });
