@@ -14,6 +14,28 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
 });
 
+const MODELO_PRINCIPAL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+const MODELO_FALLBACK = "gemini-2.5-flash";
+
+async function gerarConteudoIA(config = {}) {
+  const modelos = [...new Set([MODELO_PRINCIPAL, MODELO_FALLBACK].filter(Boolean))];
+  let ultimoErro = null;
+
+  for (const model of modelos) {
+    try {
+      return await ai.models.generateContent({
+        ...config,
+        model
+      });
+    } catch (erro) {
+      ultimoErro = erro;
+      console.error(`ERRO GEMINI NO MODELO ${model}:`, erro?.message || erro);
+    }
+  }
+
+  throw ultimoErro || new Error("Falha ao consultar os modelos Gemini");
+}
+
 app.get("/", (req, res) => {
   res.send("API Luma Gemini funcionando 🚀");
 });
@@ -23,6 +45,9 @@ app.get("/health", (req, res) => {
     sucesso: true,
     status: "online",
     mensagem: "API Luma saudável 🩺",
+    geminiConfigurado: Boolean(process.env.GEMINI_API_KEY),
+    modeloPrincipal: MODELO_PRINCIPAL,
+    modeloFallback: MODELO_FALLBACK,
     data: new Date().toISOString()
   });
 });
@@ -72,11 +97,13 @@ DADOS QUE VOCÊ PODE RECEBER:
 - glicose
 - momento da glicose
 - contextoSaudeLuma
+- medicação em uso para controle de peso, se informada
 
 REGRA MAIS IMPORTANTE:
 Se existir "contextoSaudeLuma", use esse contexto como prioridade para ajustar o plano.
 Se o contexto indicar alerta, atenção, pressão alta, glicose baixa, glicose alta ou evitar treino intenso, respeite isso.
 Se houver indicação de não treinar ou procurar atendimento, coloque isso claramente na seção de saúde e no treino recomendado.
+Se houver medicação informada, use apenas como contexto para interpretar apetite, saciedade, hidratação, alimentação e evolução. Nunca altere dose nem sugira suspensão, troca ou antecipação.
 
 SEGURANÇA:
 - Não faça diagnóstico médico.
@@ -132,8 +159,7 @@ Dados do usuário:
 ${JSON.stringify(dados, null, 2)}
 `;
 
-    const resposta = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+    const resposta = await gerarConteudoIA({
       contents: prompt
     });
 
@@ -174,6 +200,7 @@ Considere também, se vier nos dados:
 - água consumida
 - dados de saúde do dia
 - contextoSaudeLuma
+- medicação em uso, apenas como contexto
 
 IMPORTANTE:
 - Responda somente em JSON válido.
@@ -185,6 +212,7 @@ IMPORTANTE:
 - Não faça diagnóstico médico.
 - Não recomende remédios.
 - Não altere medicação.
+- Não reduza calorias apenas porque existe medicação em uso.
 - Se houver dados de pressão ou glicose, use apenas para deixar a observação mais cuidadosa.
 - A observação deve ser curta.
 
@@ -202,8 +230,7 @@ Responda exatamente neste formato:
 }
 `;
 
-    const resposta = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+    const resposta = await gerarConteudoIA({
       contents: prompt
     });
 
@@ -288,8 +315,7 @@ Responda exatamente neste formato:
 }
 `;
 
-    const resposta = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+    const resposta = await gerarConteudoIA({
       contents: [
         {
           role: "user",
@@ -328,9 +354,9 @@ Responda exatamente neste formato:
 // ==========================================
 
 app.post("/calcular-meta-kcal", async (req, res) => {
-  try {
-    const dados = req.body;
+  const dados = req.body || {};
 
+  try {
     const prompt = `
 Você é a Luma, uma assistente nutricional brasileira focada em emagrecimento saudável e orientação prática.
 
@@ -354,13 +380,16 @@ Considere:
 - pressão arterial, se houver
 - glicose, se houver
 - contextoSaudeLuma, se houver
+- tratamento ou medicação em uso, se informado, apenas como contexto
 
 IMPORTANTE:
 - Não faça diagnóstico médico.
 - Não prometa resultado.
 - Não seja agressiva na redução calórica.
 - Não recomende dieta extrema.
-- Use uma meta segura e realista.
+- Use uma meta conservadora e realista.
+- Não reduza a meta apenas porque o usuário informou tirzepatida, semaglutida, liraglutida ou outro medicamento.
+- Se o IMC estiver baixo ou próximo do limite inferior da faixa usual, evite déficit calórico e sinalize acompanhamento profissional.
 - Se faltarem dados, use uma estimativa conservadora.
 - Se houver alerta de saúde, seja ainda mais conservadora.
 - Responda somente em JSON válido.
@@ -383,24 +412,27 @@ Responda exatamente neste formato:
 }
 `;
 
-    const resposta = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+    const resposta = await gerarConteudoIA({
       contents: prompt
     });
 
-    const meta = extrairJsonDaResposta(resposta.text || "");
+    const meta = normalizarMetaKcal(extrairJsonDaResposta(resposta.text || ""));
 
     res.json({
       sucesso: true,
+      fonte: "gemini",
       meta
     });
 
   } catch (erro) {
-    console.error("ERRO META KCAL:", erro);
+    console.error("ERRO META KCAL, USANDO FALLBACK:", erro?.message || erro);
 
-    res.status(500).json({
-      sucesso: false,
-      erro: "Erro ao calcular meta de calorias"
+    const meta = calcularMetaKcalFallback(dados);
+
+    res.json({
+      sucesso: true,
+      fonte: "estimativa-temporaria",
+      meta
     });
   }
 });
@@ -440,12 +472,14 @@ Considere:
 - batimentos, se houver
 - glicose, se houver
 - contextoSaudeLuma, se houver
+- medicação em uso, apenas como contexto
 
 REGRA DE SAÚDE:
 Se existir "contextoSaudeLuma", ele tem prioridade.
 Se contextoSaudeLuma.ajusteTreino indicar evitar treino intenso, descanso, caminhada leve ou não treinar, siga isso.
 Se houver pressão muito alta, glicose baixa, batimentos muito altos ou alerta importante, não monte treino pesado.
 Se o contexto indicar "Treino não recomendado agora", entregue uma rotina de descanso, respiração leve ou alongamento suave, sem esforço.
+Se houver medicação informada, não faça qualquer orientação de dose, troca ou suspensão.
 
 REGRAS IMPORTANTES:
 - Não faça diagnóstico médico.
@@ -490,8 +524,7 @@ Responda EXATAMENTE neste formato, sem adicionar textos fora dele:
 frase motivadora curta
 `;
 
-    const resposta = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+    const resposta = await gerarConteudoIA({
       contents: prompt
     });
 
@@ -535,6 +568,110 @@ function extrairJsonDaResposta(texto) {
   }
 
   return JSON.parse(limpo);
+}
+
+function numero(valor) {
+  if (valor === null || valor === undefined || valor === "") return null;
+  const n = Number(String(valor).replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+function ultimoPeso(dados) {
+  const direto = numero(dados?.pesoAtual);
+  if (direto && direto > 20 && direto < 400) return direto;
+
+  const lista = Array.isArray(dados?.historicoPeso) ? dados.historicoPeso : [];
+  for (let i = lista.length - 1; i >= 0; i -= 1) {
+    const item = lista[i] || {};
+    const candidatos = [item.peso, item.valor, item.weight, item.kg];
+    for (const candidato of candidatos) {
+      const n = numero(candidato);
+      if (n && n > 20 && n < 400) return n;
+    }
+  }
+
+  return null;
+}
+
+function normalizarAlturaCm(valor) {
+  const n = numero(valor);
+  if (!n) return null;
+  if (n >= 1.2 && n <= 2.3) return n * 100;
+  if (n >= 120 && n <= 230) return n;
+  return null;
+}
+
+function arredondar50(valor) {
+  return Math.round(valor / 50) * 50;
+}
+
+function normalizarMetaKcal(meta = {}) {
+  const metaKcal = numero(meta.metaKcal) || 1800;
+  const faixaMin = numero(meta.faixaMin) || Math.max(1200, metaKcal - 100);
+  const faixaMax = numero(meta.faixaMax) || metaKcal + 150;
+
+  return {
+    metaKcal: Math.round(metaKcal),
+    faixaMin: Math.round(Math.min(faixaMin, metaKcal)),
+    faixaMax: Math.round(Math.max(faixaMax, metaKcal)),
+    status: String(meta.status || "Meta estimada pela Luma"),
+    observacao: String(meta.observacao || "Meta aproximada para apoiar sua rotina. Ajuste com profissional de saúde se necessário.")
+  };
+}
+
+function calcularMetaKcalFallback(dados = {}) {
+  const perfil = dados.perfilUsuario && typeof dados.perfilUsuario === "object" ? dados.perfilUsuario : {};
+  const idade = numero(perfil.idade ?? dados.idade);
+  const peso = ultimoPeso(dados);
+  const alturaCm = normalizarAlturaCm(dados.altura ?? perfil.altura);
+  const sexo = String(perfil.sexo ?? dados.sexo ?? "").toLowerCase();
+  const nivel = String(perfil.nivel ?? dados.nivel ?? "").toLowerCase();
+  const objetivo = String(perfil.objetivo ?? dados.objetivo ?? "").toLowerCase();
+
+  if (!idade || !peso || !alturaCm) {
+    return {
+      metaKcal: 1800,
+      faixaMin: 1700,
+      faixaMax: 2000,
+      status: "Estimativa temporária",
+      observacao: "A Luma está temporariamente indisponível. Complete idade, altura e peso para melhorar a estimativa e ajuste com um profissional de saúde quando necessário."
+    };
+  }
+
+  let ajusteSexo = -78;
+  if (sexo.includes("masc") || sexo === "m" || sexo === "homem") ajusteSexo = 5;
+  if (sexo.includes("fem") || sexo === "f" || sexo === "mulher") ajusteSexo = -161;
+
+  const tmb = (10 * peso) + (6.25 * alturaCm) - (5 * idade) + ajusteSexo;
+
+  let fatorAtividade = 1.25;
+  if (nivel.includes("inter") || nivel.includes("moder")) fatorAtividade = 1.4;
+  if (nivel.includes("avan") || nivel.includes("alto")) fatorAtividade = 1.55;
+
+  const gastoEstimado = tmb * fatorAtividade;
+  const alturaM = alturaCm / 100;
+  const imc = peso / (alturaM * alturaM);
+
+  let alvo = gastoEstimado;
+  const querEmagrecer = objetivo.includes("emag") || objetivo.includes("perda") || objetivo.includes("peso");
+
+  if (querEmagrecer && imc >= 20.5) {
+    alvo = Math.max(tmb * 1.25, gastoEstimado * 0.9);
+  }
+
+  alvo = arredondar50(Math.max(1200, Math.min(3200, alvo)));
+
+  const imcBaixo = imc < 20.5;
+
+  return {
+    metaKcal: alvo,
+    faixaMin: Math.max(1200, alvo - 100),
+    faixaMax: alvo + 150,
+    status: imcBaixo ? "Estimativa conservadora temporária" : "Estimativa temporária",
+    observacao: imcBaixo
+      ? "A Luma está temporariamente indisponível. Como o IMC calculado está próximo da faixa inferior, a estimativa não aplica déficit automático. Confirme sua meta com um profissional de saúde."
+      : "A Luma está temporariamente indisponível. Esta meta foi estimada no servidor com seus dados e usa um ajuste conservador. Confirme individualmente com um profissional de saúde quando necessário."
+  };
 }
 
 const PORT = process.env.PORT || 3000;
