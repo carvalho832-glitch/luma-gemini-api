@@ -168,7 +168,7 @@ app.post("/calcular-calorias", async (req, res) => {
     const prompt = `
 Você é uma assistente nutricional brasileira.
 
-Analise os alimentos informados pelo usuário e estime as calorias consumidas em cada refeição.
+Analise os alimentos informados pelo usuário e estime as calorias consumidas em cada refeição: café da manhã, almoço, jantar e ceia quando houver. O campo total deve somar as quatro refeições.
 
 Considere também, se vier nos dados:
 - perfil do usuário
@@ -202,6 +202,7 @@ Responda exatamente neste formato:
   "cafe": 0,
   "almoco": 0,
   "jantar": 0,
+  "ceia": 0,
   "total": 0,
   "observacao": "estimativa aproximada"
 }
