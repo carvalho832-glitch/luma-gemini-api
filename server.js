@@ -72,7 +72,8 @@ DADOS QUE PODEM CHEGAR:
 - perfilUsuario.tratamentoPeso: medicação em uso, dose informada, frequência, início, dia habitual, última aplicação e efeitos percebidos
 - altura, peso, meta de peso e histórico de peso
 - metaKcalLuma
-- diarioHoje: café, almoço, jantar, água e calorias
+- diarioHoje: café, almoço, jantar, ceia, água, calorias e registrosFoto quando existirem
+- horariosRefeicoesHoje: horários automáticos das análises por foto, quando existirem
 - aguaConsumidaMl e metaAguaMl
 - últimos treinos
 - saudeHoje e últimos registros de saúde
@@ -85,10 +86,11 @@ REGRAS DE FIDELIDADE AOS DADOS:
 4. Não repita a mesma informação de saúde em blocos diferentes.
 5. Se aguaConsumidaMl e metaAguaMl existirem, use EXATAMENTE esses números. Calcule o que falta sem inventar outra meta. Nunca troque a meta do app por 2 L, 2,5 L ou outro valor.
 6. Em Alimentação, use os itens realmente presentes em diarioHoje. Se não houver refeições registradas, diga isso. Não presuma o que a pessoa comeu.
-7. Em Treino, considere nível, últimos treinos e contextoSaudeLuma. Sugestões de duração devem ser apresentadas como sugestão, nunca como necessidade médica.
-8. Se tratamentoPeso.ativo for verdadeiro, você pode considerar o tratamento como contexto. Só diga que houve aplicação recente se ultimaAplicacao estiver preenchida. Só mencione náusea, refluxo, constipação, apetite reduzido, saciedade ou outro efeito se isso estiver explicitamente registrado em efeitos percebidos ou observações.
-9. Nunca sugira aumentar, reduzir, interromper, trocar, antecipar ou atrasar medicamento. Não interprete dose como prescrição.
-10. A presença de tirzepatida, semaglutida, liraglutida ou outro medicamento NÃO é motivo, por si só, para recomendar comer menos, pular refeições ou reduzir hidratação.
+7. Se diarioHoje.registrosFoto ou horariosRefeicoesHoje trouxer horários, use SOMENTE esses horários registrados. Você pode comentar de forma descritiva sobre a distribuição das refeições e os intervalos entre registros quando houver dados suficientes. Não invente horário, não presuma que o horário da foto prova o horário exato em que a pessoa comeu e não classifique um horário isolado como "certo", "errado", "bom" ou "ruim".
+8. Em Treino, considere nível, últimos treinos e contextoSaudeLuma. Sugestões de duração devem ser apresentadas como sugestão, nunca como necessidade médica.
+9. Se tratamentoPeso.ativo for verdadeiro, você pode considerar o tratamento como contexto. Só diga que houve aplicação recente se ultimaAplicacao estiver preenchida. Só mencione náusea, refluxo, constipação, apetite reduzido, saciedade ou outro efeito se isso estiver explicitamente registrado em efeitos percebidos ou observações.
+10. Nunca sugira aumentar, reduzir, interromper, trocar, antecipar ou atrasar medicamento. Não interprete dose como prescrição.
+11. A presença de tirzepatida, semaglutida, liraglutida ou outro medicamento NÃO é motivo, por si só, para recomendar comer menos, pular refeições ou reduzir hidratação.
 
 SEGURANÇA:
 - Não faça diagnóstico.
@@ -272,6 +274,12 @@ REGRAS IMPORTANTES:
 - Não altere medicação.
 - Use números inteiros para kcal.
 - A observação deve ser curta e clara.
+- O contexto pode trazer horarioLocal, dataDiario e registrosFotoAnteriores.
+- Considere o horário apenas como contexto de rotina alimentar.
+- Não diga que um horário é certo, errado, bom ou ruim apenas pelo relógio.
+- Se houver registros anteriores no mesmo dia, você pode comentar brevemente sobre o intervalo entre eles, sem prescrever jejum ou frequência de refeições.
+- Não invente horários. Use somente horarioLocal e registrosFotoAnteriores quando estiverem presentes.
+- Preencha observacaoHorario com no máximo uma frase curta e útil. Se não houver informação suficiente, apenas registre o horário de forma neutra.
 
 Contexto do usuário, se houver:
 ${JSON.stringify(contexto, null, 2)}
@@ -289,7 +297,8 @@ Responda exatamente neste formato:
     }
   ],
   "totalKcal": 0,
-  "observacao": "Calorias estimadas pela foto. Ajuste as porções se necessário."
+  "observacao": "Calorias estimadas pela foto. Ajuste as porções se necessário.",
+  "observacaoHorario": "Refeição registrada às 12:30; horário usado apenas como contexto da rotina."
 }
 `;
 
