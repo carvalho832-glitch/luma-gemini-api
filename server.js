@@ -298,7 +298,7 @@ Responda exatamente neste formato:
   ],
   "totalKcal": 0,
   "observacao": "Calorias estimadas pela foto. Ajuste as porções se necessário.",
-  "observacaoHorario": "Refeição registrada às 12:30; horário usado apenas como contexto da rotina."
+  "observacaoHorario": "Horário do registro considerado como contexto da rotina alimentar."
 }
 `;
 
