@@ -274,6 +274,10 @@ REGRAS IMPORTANTES:
 - Não recomende remédios.
 - Não altere medicação.
 - Use números inteiros para kcal.
+- Estime também proteína, carboidratos e gorduras em gramas, com prudência.
+- Use números inteiros para os macronutrientes.
+- Se não conseguir estimar um macronutriente com segurança, use 0.
+- A soma dos macros é apenas estimativa visual e não deve ser tratada como medição exata.
 - A observação deve ser curta e clara.
 - O contexto pode trazer horarioLocal, dataDiario e registrosFotoAnteriores.
 - Considere o horário apenas como contexto de rotina alimentar.
@@ -294,11 +298,17 @@ Responda exatamente neste formato:
       "nome": "alimento identificado",
       "quantidade": "porção estimada",
       "kcal": 0,
+      "proteinaG": 0,
+      "carboidratosG": 0,
+      "gordurasG": 0,
       "confianca": "alta"
     }
   ],
   "totalKcal": 0,
-  "observacao": "Calorias estimadas pela foto. Ajuste as porções se necessário.",
+  "proteinaG": 0,
+  "carboidratosG": 0,
+  "gordurasG": 0,
+  "observacao": "Calorias e macronutrientes estimados pela foto. Ajuste as porções se necessário.",
   "observacaoHorario": "Horário do registro considerado como contexto da rotina alimentar."
 }
 `;
